@@ -37,8 +37,8 @@ button{font-family:inherit;cursor:pointer}
 .maplibregl-ctrl-attrib{background:rgba(10,16,22,.75)!important;color:#5f868c!important;font-size:9px!important}
 .maplibregl-ctrl-attrib a{color:#5f868c!important}
 .maplibregl-ctrl-bottom-right{display:none}
-.maplibregl-ctrl-bottom-left{left:0;bottom:calc(var(--sb) + 2px)}
-body:not([data-mode=idle]) .maplibregl-ctrl-bottom-left{display:none}
+.maplibregl-ctrl-top-left{top:calc(var(--st) + 10px);left:8px}
+body:not([data-mode=idle]) .maplibregl-ctrl-top-left{display:none}
 
 /* рамка экрана как в референсе */
 .frame{position:fixed;inset:5px;border:1px solid rgba(200,65,79,.55);pointer-events:none;z-index:50}
@@ -55,7 +55,8 @@ body[data-mode=nav] #horizon{opacity:1}
 .panel::after{content:'';position:absolute;inset:1px;background:var(--pan);clip-path:var(--cut);z-index:-1}
 
 /* верх: поиск */
-#top{position:fixed;left:14px;right:14px;top:calc(var(--st) + 12px);z-index:20}
+#top{position:fixed;left:14px;right:14px;bottom:calc(var(--sb) + var(--kb,0px) + 14px);z-index:20}
+body.searching #top{bottom:calc(var(--kb,0px) + 10px)}
 body[data-mode=preview] #top,body[data-mode=nav] #top{display:none}
 #status{display:flex;align-items:center;gap:8px;font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:.14em;margin:0 4px 6px;text-shadow:0 0 6px rgba(0,0,0,.9)}
 .logo{font-weight:700;font-family:'Rajdhani';font-size:17px;letter-spacing:.2em;color:var(--y)}
@@ -71,7 +72,7 @@ body[data-mode=preview] #top,body[data-mode=nav] #top{display:none}
 #q{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--c);font:600 19px 'Rajdhani';letter-spacing:.06em}
 #q::placeholder{color:#4d7c82}
 #clr{background:none;border:0;color:var(--c);font:700 18px 'Rajdhani';width:50px;height:54px;display:none}
-#results{list-style:none;margin:8px 0 0;padding:6px 0;max-height:46vh;overflow:auto;display:none}
+#results{list-style:none;margin:0 0 8px;padding:6px 0;max-height:46vh;overflow:auto;display:none}
 #results li{padding:11px 16px;border-bottom:1px solid rgba(110,232,222,.12)}
 #results li:last-child{border-bottom:0}
 #results li:active{background:rgba(245,230,99,.12)}
@@ -122,6 +123,7 @@ body[data-mode=nav][data-track=off] #loc{animation:pulse 1.2s infinite}
 #chip{position:fixed;left:14px;bottom:calc(var(--sb) + var(--stack,0px) + 14px);z-index:20;font:12px 'Share Tech Mono',monospace;letter-spacing:.1em;color:#7d9ea3;
   background:var(--pan);padding:6px 11px;box-shadow:inset 0 0 0 1px var(--ln);transition:bottom .2s}
 #chip.ok{color:var(--c)}
+body.searching #side,body.searching #chip,body.hasres #side,body.hasres #chip{display:none}
 body[data-mode=nav] #chip{display:none}
 
 /* карточка маршрута и HUD */
@@ -186,12 +188,11 @@ body[data-mode=nav] #hud{display:flex;align-items:center;gap:14px;padding:12px 1
 </div>
 
 <header id="top">
-  <div id="status"><span class="logo glitch" data-t="GHOSTLINE">GHOSTLINE</span><span class="sep">//</span><span>NAV</span></div>
+  <ul id="results" class="panel"></ul>
   <div id="searchWrap" class="panel">
     <input id="q" placeholder="Куда едем?" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
     <button id="clr" aria-label="Очистить">✕</button>
   </div>
-  <ul id="results" class="panel"></ul>
 </header>
 
 <div id="routebar" class="panel">
@@ -218,7 +219,6 @@ body[data-mode=nav] #hud{display:flex;align-items:center;gap:14px;padding:12px 1
     <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="14" cy="14" r="7"/><circle cx="14" cy="14" r="2.2" fill="currentColor"/><path d="M14 2v5M14 21v5M2 14h5M21 14h5" stroke-linecap="round"/></svg>
     <span id="locTag"></span>
   </button>
-  <button class="sb on" id="vox">VOX</button>
   <button class="sb" id="sim">SIM</button>
 </div>
 
@@ -320,7 +320,7 @@ function fmtDist(m){if(m<1000)return(m<30?Math.round(m):Math.round(m/10)*10)+' �
 function fmtTime(s){const m=Math.max(1,Math.round(s/60));if(m<60)return m+' мин';return Math.floor(m/60)+' ч '+String(m%60).padStart(2,'0')+' мин';}
 let toastT;function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2800);}
 function syncStack(){
-  const el=state.mode==='preview'?$('#preview'):state.mode==='nav'?$('#hud'):null;
+  const el=state.mode==='preview'?$('#preview'):state.mode==='nav'?$('#hud'):$('#searchWrap');
   document.documentElement.style.setProperty('--stack',(el?el.offsetHeight+12:0)+'px');
 }
 function setMode(m){document.body.dataset.mode=m;state.mode=m;syncStack();requestAnimationFrame(syncStack);}
@@ -344,7 +344,7 @@ if(typeof maplibregl==='undefined'){
   if(!ok){showFatal('WebGL недоступен в этом окне.\nОткройте в обычном браузере (Chrome/Safari) и включите аппаратное ускорение.');throw new Error('no webgl');}
 })();
 const map=new maplibregl.Map({container:'map',style:STYLE,center:[24.7536,59.437],zoom:12.5,pitch:0,maxPitch:75,attributionControl:false});
-map.addControl(new maplibregl.AttributionControl({compact:true}));
+map.addControl(new maplibregl.AttributionControl({compact:true}),'top-left');
 let mapErrShown=false;
 map.on('error',e=>{const m=(e&&e.error&&e.error.message)||'неизвестная ошибка карты';console.error(e);if(!mapErrShown){mapErrShown=true;showFatal('КАРТА: '+m);}});
 map.touchZoomRotate.enable();
@@ -358,18 +358,57 @@ destEl.innerHTML='<svg viewBox="0 0 34 44"><path d="M17 2 L31 16 L17 42 L3 16 Z"
 const destMarker=new maplibregl.Marker({element:destEl,anchor:'bottom'});
 
 /* ============ GPS ============ */
-function followIdle(){
-  if(state.track==='north')map.easeTo({center:state.pos,duration:900,easing:t=>t});
-  else if(state.track==='head')map.easeTo({center:state.pos,bearing:state.heading,duration:900,easing:t=>t});
+/* ============ GPS + ПЛАВНОЕ ДВИЖЕНИЕ МАЯЧКА ============ */
+function angDiff(a,b){return ((b-a+540)%360)-180;}
+const disp={pos:null,head:0,from:null,fromHead:0,to:null,toHead:0,t0:0,dur:1000,active:false};
+let camZ=14,camLockUntil=0,lastFixT=0;
+/* маячок не прыгает от точки к точке, а плавно скользит между ними */
+function pushFix(p,h,dur){
+  if(!disp.pos){disp.pos=p.slice();disp.head=h;meMarker.setLngLat(p).setRotation(h).addTo(map);}
+  disp.from=disp.pos.slice();disp.fromHead=disp.head;disp.to=p;disp.toHead=h;disp.t0=performance.now();disp.dur=dur;disp.active=true;
 }
+function applyCamera(){
+  if(!disp.pos||performance.now()<camLockUntil)return;
+  if(state.mode==='nav'){
+    if(state.track!=='head')return;
+    const sp=state.speed*3.6,zt=sp<15?17.6:sp<45?16.8:sp<80?16:15.2;
+    camZ+=(zt-camZ)*0.05;
+    map.jumpTo({center:disp.pos,bearing:disp.head,pitch:62,zoom:camZ,padding:{top:Math.round(innerHeight*.42),bottom:0,left:0,right:0}});
+  }else if(state.mode==='idle'){
+    if(state.track==='north')map.jumpTo({center:disp.pos});
+    else if(state.track==='head')map.jumpTo({center:disp.pos,bearing:disp.head});
+  }
+}
+function frame(now){
+  requestAnimationFrame(frame);
+  const navFollow=state.mode==='nav'&&state.track==='head';
+  if(!disp.active&&!navFollow)return;
+  if(disp.active){
+    const k=Math.min(1,(now-disp.t0)/disp.dur);
+    disp.pos=[disp.from[0]+(disp.to[0]-disp.from[0])*k,disp.from[1]+(disp.to[1]-disp.from[1])*k];
+    disp.head=(disp.fromHead+angDiff(disp.fromHead,disp.toHead)*k+360)%360;
+    meMarker.setLngLat(disp.pos).setRotation(disp.head);
+    if(k>=1)disp.active=false;
+  }
+  applyCamera();
+}
+requestAnimationFrame(frame);
+
 function onFix(lng,lat,heading,speed,acc){
   const p=[lng,lat];
-  state.pos=p;state.heading=heading;state.speed=speed||0;
-  meMarker.setLngLat(p).setRotation(heading);
-  if(!meMarker._added){meMarker.addTo(map);meMarker._added=true;}
-  if(!state.centered&&state.mode==='idle'){state.centered=true;map.easeTo({center:p,zoom:14.5,duration:1200});}
-  else if(state.mode==='idle'&&state.track!=='off')followIdle();
-  if(state.mode==='nav')updateNav(p);
+  state.pos=p;state.speed=speed||0;
+  /* сглаживание курса, чтобы камера не дёргалась */
+  let h=heading;
+  if(state.hasFix&&state.speed>2)h=(state.heading+angDiff(state.heading,heading)*0.45+360)%360;
+  else if(state.hasFix)h=state.heading;
+  state.hasFix=true;state.heading=h;
+  /* в навигации «прилипаем» к линии маршрута */
+  let sp=p,sh=h;
+  if(state.mode==='nav'){const s=updateNav(p);if(s){sp=s.pos;sh=s.head;}}
+  const now=performance.now();
+  const dt=lastFixT?now-lastFixT:1000;lastFixT=now;
+  pushFix(sp,sh,Math.min(1500,Math.max(220,dt*1.05)));
+  if(!state.centered&&state.mode==='idle'){state.centered=true;map.easeTo({center:p,zoom:14.5,duration:1200});camLockUntil=performance.now()+1250;}
 }
 if('geolocation' in navigator){
   navigator.geolocation.watchPosition(g=>{
@@ -387,14 +426,17 @@ if('geolocation' in navigator){
 /* ============ ПОИСК ============ */
 let sT,sSeq=0;
 const q=$('#q'),res=$('#results');
+function showRes(v){res.style.display=v?'block':'none';document.body.classList.toggle('hasres',v);}
 q.addEventListener('input',()=>{
   $('#clr').style.display=q.value?'block':'none';
   clearTimeout(sT);
-  if(q.value.trim().length<3){res.style.display='none';return;}
+  if(q.value.trim().length<3){showRes(false);return;}
   sT=setTimeout(()=>search(q.value.trim()),450);
 });
 q.addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(sT);if(q.value.trim().length>=2)search(q.value.trim());q.blur();}});
-$('#clr').onclick=()=>{q.value='';$('#clr').style.display='none';res.style.display='none';q.focus();};
+q.addEventListener('focus',()=>document.body.classList.add('searching'));
+q.addEventListener('blur',()=>setTimeout(()=>document.body.classList.remove('searching'),200));
+$('#clr').onclick=()=>{q.value='';$('#clr').style.display='none';showRes(false);q.focus();};
 
 async function geocode(text){
   const c=map.getCenter();
@@ -416,7 +458,7 @@ async function geocode(text){
 }
 async function search(text){
   const my=++sSeq;
-  res.style.display='block';res.innerHTML='<li><div class="none">&gt; ПОИСК...</div></li>';
+  showRes(true);res.innerHTML='<li><div class="none">&gt; ПОИСК...</div></li>';
   try{
     const list=await geocode(text);
     if(my!==sSeq)return;
@@ -426,7 +468,7 @@ async function search(text){
       const li=document.createElement('li');
       li.innerHTML=`<div class="n"></div><div class="s"></div>`;
       li.querySelector('.n').textContent=it.name;li.querySelector('.s').textContent=it.sub;
-      li.onclick=()=>{res.style.display='none';q.value=it.name;q.blur();startPreview(it);};
+      li.onclick=()=>{showRes(false);q.value=it.name;q.blur();startPreview(it);};
       res.appendChild(li);
     });
   }catch(e){if(my===sSeq)res.innerHTML='<li><div class="none">&gt; ОШИБКА СЕТИ</div></li>';}
@@ -445,7 +487,7 @@ async function pickFromMap(ll){
 map.on('touchstart',e=>{if(state.mode==='nav'||(e.points&&e.points.length>1))return;lp=setTimeout(()=>{if(navigator.vibrate)navigator.vibrate(30);pickFromMap(e.lngLat);},650);});
 ['touchend','touchcancel','dragstart','zoomstart'].forEach(ev=>map.on(ev,clearLP));
 map.on('contextmenu',e=>{if(state.mode!=='nav')pickFromMap(e.lngLat);});
-map.on('click',()=>{res.style.display='none';q.blur();});
+map.on('click',()=>{showRes(false);q.blur();});
 
 /* ============ МАРШРУТ ============ */
 async function fetchRoute(from,to){
@@ -575,9 +617,10 @@ $('#go').onclick=()=>{
   lockScreen();
   say('Навигация запущена');
   if(state.sim)startSim();
-  if(state.pos)updateNav(state.pos);else{
+  if(state.pos)onFix(state.pos[0],state.pos[1],state.heading,state.speed,5);else{
     const p=R.coords[0];onFix(p[0],p[1],bearing(R.coords[0],R.coords[Math.min(5,R.coords.length-1)]),0,50);
   }
+  navStartCam();
 };
 $('#end').onclick=()=>{endNav();};
 function endNav(){
@@ -600,13 +643,13 @@ function project(p){
 }
 
 function updateNav(p){
-  if(!R)return;
+  if(!R)return null;
   const pr=project(p);
   if(pr.dist>70&&!state.sim&&!state.rerouting&&Date.now()-state.lastReroute>8000){reroute();}
   R.prog=pr.prog;
   const last=R.steps.length-1;
   while(state.idx<last&&pr.prog>=R.stepStart[state.idx+1]-(state.idx+1===last?25:12))state.idx++;
-  if(state.idx>=last){arrived();return;}
+  if(state.idx>=last){arrived();return null;}
   const nxt=R.steps[state.idx+1];
   const dNext=Math.max(0,R.stepStart[state.idx+1]-pr.prog);
   $('#mIcon').innerHTML=iconSVG(nxt);
@@ -620,7 +663,18 @@ function updateNav(p){
   $('#eta').textContent=new Date(Date.now()+remT*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
   $('#spd').textContent=Math.round(state.speed*3.6);
   voice(nxt,dNext);
-  if(state.track==='head')cam();
+  if(pr.dist<35){
+    const sp=routePoint(pr.prog),ah=routePoint(Math.min(R.total,pr.prog+18));
+    return {pos:sp,head:hav(sp,ah)>2?bearing(sp,ah):state.heading};
+  }
+  return null;
+}
+function routePoint(d){
+  const c=R.coords,cum=R.cum;d=Math.max(0,Math.min(R.total,d));
+  let lo=0,hi=cum.length-1;
+  while(hi-lo>1){const m=(lo+hi)>>1;if(cum[m]<=d)lo=m;else hi=m;}
+  const l=cum[hi]-cum[lo]||1,t=(d-cum[lo])/l;
+  return [c[lo][0]+(c[hi][0]-c[lo][0])*t,c[lo][1]+(c[hi][1]-c[lo][1])*t];
 }
 function voice(nxt,d){
   const key=l=>state.idx+':'+l;
@@ -630,28 +684,31 @@ function voice(nxt,d){
   else if(d<=130){if(!state.spoken[key(1)]){state.spoken[key(1)]=state.spoken[key(2)]=1;say('Через '+Math.round(d/10)*10+' метров '+txt+name);}}
   else if(d<=420){if(!state.spoken[key(2)]){state.spoken[key(2)]=1;say('Через '+Math.round(d/50)*50+' метров '+txt+name);}}
 }
-function cam(){
-  const sp=state.speed*3.6;
-  const z=sp<15?17.6:sp<45?16.8:sp<80?16:15.2;
-  map.easeTo({center:state.pos,bearing:state.heading,pitch:62,zoom:z,duration:state.sim?260:950,easing:t=>t,
-    padding:{top:Math.round(innerHeight*.42),bottom:0,left:0,right:0}});
+function navStartCam(){
+  const sp=state.speed*3.6,zt=sp<15?17.6:sp<45?16.8:sp<80?16:15.2;
+  camZ=zt;camLockUntil=performance.now()+850;
+  const o={bearing:disp.head||state.heading||0,pitch:62,zoom:zt,duration:800,padding:{top:Math.round(innerHeight*.42),bottom:0,left:0,right:0}};
+  const c=disp.pos||state.pos;if(c)o.center=c;
+  map.easeTo(o);
 }
 /* если сдвинули карту пальцем, слежение отключается; кнопка локации включает его снова */
 map.on('dragstart',e=>{if(e.originalEvent&&state.track!=='off'&&state.mode!=='preview')setTrack('off');});
 
 $('#loc').onclick=()=>{
   if(!state.pos){toast('GPS ещё ищет сигнал');return;}
-  if(state.mode==='nav'){setTrack('head');cam();return;}
-  if(state.mode==='preview'){map.easeTo({center:state.pos,duration:600});return;}
+  const here=disp.pos||state.pos;
+  if(state.mode==='nav'){setTrack('head');navStartCam();return;}
+  if(state.mode==='preview'){map.easeTo({center:here,duration:600});return;}
+  camLockUntil=performance.now()+750;
   if(state.track==='off'){
     setTrack('north');
-    map.easeTo({center:state.pos,zoom:Math.max(map.getZoom(),15.5),bearing:0,pitch:0,duration:700});
+    map.easeTo({center:here,zoom:Math.max(map.getZoom(),15.5),bearing:0,pitch:0,duration:700});
   }else if(state.track==='north'){
     setTrack('head');
-    map.easeTo({center:state.pos,bearing:state.heading,pitch:55,zoom:Math.max(map.getZoom(),16.5),duration:700});
+    map.easeTo({center:here,bearing:disp.head,pitch:55,zoom:Math.max(map.getZoom(),16.5),duration:700});
   }else{
     setTrack('north');
-    map.easeTo({center:state.pos,bearing:0,pitch:0,duration:700});
+    map.easeTo({center:here,bearing:0,pitch:0,duration:700});
   }
 };
 
@@ -701,9 +758,13 @@ $('#sim').onclick=()=>{
 $('#spd').onclick=()=>{if(!state.sim)return;state.simSpeed=state.simSpeed===16?30:state.simSpeed===30?8:16;};
 
 /* ============ КНОПКИ ============ */
-$('#vox').onclick=()=>{state.voice=!state.voice;$('#vox').classList.toggle('on',state.voice);$('#vox').classList.toggle('off',!state.voice);if(!state.voice){try{speechSynthesis.cancel();}catch(e){}}else say('Голос включён');};
 
 /* ============ ЗАГРУЗКА ============ */
+syncStack();addEventListener('resize',syncStack);
+if(window.visualViewport){
+  const kb=()=>{const v=visualViewport;document.documentElement.style.setProperty('--kb',Math.max(0,innerHeight-v.height-v.offsetTop)+'px');};
+  visualViewport.addEventListener('resize',kb);visualViewport.addEventListener('scroll',kb);
+}
 setTimeout(()=>$('#boot').classList.add('hide'),2300);
 </script>
 </body>
